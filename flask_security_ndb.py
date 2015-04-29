@@ -6,8 +6,11 @@
 The :mod:`<flask_security_ndb>` module adds support for the Google App Engine datastore using NDB
 
 """
+import logging
+
 from flask.ext.security import datastore, UserMixin, RoleMixin
 from google.appengine.ext import ndb
+from google.appengine.api import mail
 
 __all__ = ['Role', 'User', 'NDBUserDatastore']
 
@@ -121,3 +124,11 @@ class NDBUserDatastore(NDBDatastore, datastore.UserDatastore):
         :rtype: Role or None
         """
         return self.role_model.get_by_id(role)
+
+def send_email(message):
+    """Sends a :class:`flask.ext.mail.Message` using the GAE infrastructure
+
+    :param flask.ext.mail.Message message:
+    """
+    mail.send_mail(message.sender, message.send_to, message.subject,
+                   body=message.body, html=message.html)
