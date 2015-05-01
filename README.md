@@ -26,6 +26,13 @@ If you are not using an `sh` compatible shell you can use the following:
 $ ./bin/dev_appserver
 ``
 
+Flask installs an admin user on first launch with the `admin` role.
+
+
+	Username: admin@example.org
+	Password: password
+
+
 ## Testing the app
 
 There are no tests yet but the runner is configured. Run it with:
