@@ -6,68 +6,11 @@
 The :mod:`<flask_security_ndb>` module adds support for the Google App Engine datastore using NDB
 
 """
-from flask.ext.security import datastore, UserMixin, RoleMixin
+from flask_security import datastore, UserMixin, RoleMixin
 from google.appengine.ext import ndb
 from google.appengine.api import mail
 
 __all__ = ['Role', 'User', 'NDBUserDatastore']
-
-class KeyPropertyProxy(list):
-    """A Proxy object that lets you deal with Kinds stored in a repeated ndb.KeyProperty"""
-
-    def __init__(self, owner=None, field=None):
-        if not owner or not field:
-            raise ValueError("owner/field cannot be null")
-        self.target = getattr(owner, field, None)
-        if self.target is None:
-            raise AttributeError("{}.{}".format(owner, field))
-        self._load()
-
-    def __iter__(self):
-        self._load()
-        return super(KeyPropertyProxy, self).__iter__()
-
-    def remove(self, model):
-        """
-        :param ndb.Model model: Item to remove
-        """
-        self._load()
-        self.target.remove(model.key)
-        super(KeyPropertyProxy, self).remove(model)
-
-    def append(self, model):
-        """
-        :param ndb.Model model: Item to remove
-        """
-        self._load()
-        self.target.append(model.key)
-        super(KeyPropertyProxy, self).append(model)
-
-    def insert(self, i, model):
-        """
-        :param int i:
-        :param ndb.Model model: Item to remove
-        """
-        self._load()
-        self.target.insert(i, model.key)
-        super(KeyPropertyProxy, self).insert(i, model)
-
-    def extend(self, models):
-        """
-        :param list of ndb.Model models:
-        """
-        self._load()
-        self.target.extend([m.key for m in models])
-        super(KeyPropertyProxy, self).extend(models)
-
-    def __contains__(self, model):
-        # just in case I didn't initialize in the right place?
-        self._load()
-        return super(KeyPropertyProxy, self).__contains__(model)
-
-    def _load(self):
-        if self.target and len(self.target) != len(self):
-            list.extend(self, ndb.get_multi(self.target))
 
 class NDBBase(ndb.Model):
     @property
@@ -97,9 +40,11 @@ class User(NDBBase, UserMixin):
     login_count = ndb.IntegerProperty(indexed=False, default=0)
     roles_ = ndb.KeyProperty(Role, repeated=True)
 
-    def __init__(self, *args, **kwds):
+    def __init__(self, *args, **kwargs):
         self._roles_cache = []
-        super(User, self).__init__(*args, **kwds)
+        roles = [r.key for r in kwargs.pop('roles', [])]
+        super(User, self).__init__(*args, **kwargs)
+        self.roles_ = roles
 
     @property
     def roles(self):
@@ -117,6 +62,7 @@ class NDBDatastore(datastore.Datastore):
     """Datastore adapter for NDB"""
 
     def __init__(self, *args, **kwargs):
+        """No need to set self.db"""
         pass
 
     def put(self, model):
@@ -149,21 +95,10 @@ class NDBUserDatastore(NDBDatastore, datastore.UserDatastore):
         NDBDatastore.__init__(self)
         datastore.UserDatastore.__init__(self, user_model, role_model)
 
-    def _prepare_create_user_args(self, **kwargs):
+    def create_user(self, **kwargs):
         """App Engine override to set email as the :class:`ndb.Key`'s id"""
         kwargs['id'] = kwargs.get('email', None)
-        return super(NDBUserDatastore, self)._prepare_create_user_args(**kwargs)
-
-    # def _prepare_role_modify_args(self, user, role):
-    #     """Returns a User and ndb.Key(Role) suitable for ndb operations
-    #
-    #     :param User user:
-    #     :param Role role:
-    #     :return: The User and Role Key tuple
-    #     :rtype: (User, ndb.Key)
-    #     """
-    #     user, role = super(NDBUserDatastore, self)._prepare_role_modify_args(user, role)
-    #     return user, role.key
+        return super(NDBUserDatastore, self).create_user(**kwargs)
 
     def create_role(self, **kwargs):
         """App Engine override to set name as the :class:`ndb.Key`'s id"""
@@ -198,9 +133,9 @@ class NDBUserDatastore(NDBDatastore, datastore.UserDatastore):
         return self.role_model.get_by_id(role)
 
 def send_email(message):
-    """Sends a :class:`flask.ext.mail.Message` using the GAE infrastructure
+    """Sends a :class:`flask_mail.Message` using the GAE infrastructure
 
-    :param flask.ext.mail.Message message:
+    :param flask_mail.Message message:
     """
     mail.send_mail(message.sender, message.send_to, message.subject,
                    body=message.body, html=message.html)

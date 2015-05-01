@@ -3,26 +3,26 @@
 # Import the Flask Framework
 from flask import render_template
 from application import app
-from flask.ext.security import Security, login_required
-from flask_security_ndb import NDBUserDatastore, User, Role, send_email
+from flask_security import login_required
+from flask_security_ndb import send_email
+from admin import admin_app, add_default_views
+from security import security_app
 
-from admin import admin, UserAdmin, RoleAdmin
+security_app.init_app(app)
+# Override Flask-Mail for Google App Engine by using the hook in :class:`flask_security.core._SecurityState`
+security_app.send_mail_task(send_email)
 
-# app.register_blueprint(admin_bp, url_prefix='/admin')
+admin_app.init_app(app)
+add_default_views(admin_app)
 
-# Setup Flask-Security using the NDB adapter stuff I wrote
-user_datastore = NDBUserDatastore(User, Role)
-security = Security(app, user_datastore)
+# Create a user to test with
+@app.before_first_request
+def create_user():
+    datastore = security_app.datastore
+    user = datastore.create_user(email='admin@example.org', password='password')
+    role = datastore.find_or_create_role(name='admin', description='The Admin role for admin fun')
+    datastore.add_role_to_user(user, role)
 
-# Override Flask-Mail by using the hook in :class:`flask_security.core._SecurityState`
-security.send_mail_task(send_email)
-
-
-admin.init_app(app)
-admin.name = "Josh's awesome app"
-# Add Flask-Admin views for Users and Roles
-admin.add_view(UserAdmin(User))
-admin.add_view(RoleAdmin(Role))
 
 @app.route('/')
 @login_required
