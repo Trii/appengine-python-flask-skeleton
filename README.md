@@ -24,7 +24,7 @@ If you are not using an `sh` compatible shell you can use the following:
 
 ```sh
 $ ./bin/dev_appserver
-``
+```
 
 Flask installs an admin user on first launch with the `admin` role.
 
